@@ -207,6 +207,37 @@
         }
       }
     </style>
+    <style id="auth-gate-style">body { visibility: hidden; }</style>
+    <script>
+      (async function () {
+        var p = window.location.pathname;
+        var hasTokenParam = window.location.search.includes('token=');
+        function release() {
+          var s = document.getElementById('auth-gate-style');
+          if (s) s.remove();
+        }
+        function bounce() { window.location.replace('/auth/login'); }
+        if (p.startsWith('/auth/') || hasTokenParam) { release(); return; }
+        var token = localStorage.getItem('token');
+        if (!token) { bounce(); return; }
+        try {
+          var res = await fetch('/api/v2/kv/', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + token },
+            cache: 'no-store',
+            credentials: 'omit'
+          });
+          if (res.status === 401 || res.status === 403) {
+            localStorage.removeItem('token');
+            bounce();
+            return;
+          }
+          release();
+        } catch (e) {
+          release();
+        }
+      })();
+    </script>
   </head>
 
   <body>
