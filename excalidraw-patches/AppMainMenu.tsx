@@ -16,7 +16,7 @@ import { useAtom, useSetAtom, userAtom, saveAsDialogAtom } from "../app-jotai";
 import { LanguageList } from "../app-language/LanguageList";
 
 const AboutDialog = ({ onClose }: { onClose: () => void }) => (
-  <Dialog onCloseRequest={onClose} title="About" small>
+  <Dialog onCloseRequest={onClose} title="About">
     <div style={{ padding: "0 1.5rem 1.5rem", lineHeight: 1.6 }}>
       <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.2rem" }}>
         Excalidraw — Pi Self-Hosted
