@@ -20,6 +20,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -184,6 +185,8 @@ func setupSocketIO() *socketio.Server {
 	opts.SetMaxHttpBufferSize(5000000)
 	opts.SetPath("/socket.io")
 	opts.SetAllowEIO3(true)
+	opts.SetPingInterval(10000 * time.Millisecond)
+	opts.SetPingTimeout(5000 * time.Millisecond)
 	opts.SetCors(&types.Cors{
 		Origin:      "*",
 		Credentials: true,
