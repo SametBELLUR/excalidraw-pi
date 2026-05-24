@@ -1,37 +1,40 @@
-# 前端构建阶段
+# Frontend build stage
 FROM --platform=$BUILDPLATFORM node:18 AS frontend-builder
 WORKDIR /app
 ENV NODE_OPTIONS=--max-old-space-size=3072
 # Copy excalidraw submodule (must be initialized: git submodule update --init excalidraw)
 COPY excalidraw/ ./excalidraw/
-# Overlay Pi-specific frontend patches (auth gate, file storage fix)
+# Overlay Pi-specific frontend patches
 COPY excalidraw-patches/index.html excalidraw/excalidraw-app/index.html
 COPY excalidraw-patches/firebase.ts excalidraw/excalidraw-app/data/firebase.ts
+COPY excalidraw-patches/time.ts excalidraw/excalidraw-app/utils/time.ts
+COPY excalidraw-patches/AI.tsx excalidraw/excalidraw-app/components/AI.tsx
+COPY excalidraw-patches/MyCreationsTab.tsx excalidraw/excalidraw-app/components/MyCreationsTab.tsx
+COPY excalidraw-patches/useCanvasManagement.ts excalidraw/excalidraw-app/hooks/useCanvasManagement.ts
 # Build frontend
 RUN cd excalidraw && npm install -g pnpm && pnpm install && cd excalidraw-app && DISABLE_VITE_CHECKER=true pnpm build:app:docker
 
-# 后端构建阶段
+# Backend build stage
 FROM --platform=$BUILDPLATFORM golang:alpine AS backend-builder
 RUN apk update && apk add --no-cache git
 WORKDIR /app
 ARG TARGETOS
 ARG TARGETARCH
-# 复制 Go 模块文件
+# Copy Go module files
 COPY go.mod go.sum ./
 RUN go mod download
-# 复制源代码
+# Copy source code
 COPY . .
-# 复制前端构建文件到正确位置，以便 Go embed 可以找到
+# Copy frontend build output so Go embed can find it
 COPY --from=frontend-builder /app/excalidraw/excalidraw-app/build ./frontend/
-# 构建 Go 应用
+# Build Go binary
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o main .
 
-# 最终运行镜像
+# Final runtime image
 FROM --platform=$TARGETPLATFORM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
-# 复制后端二进制文件（已包含嵌入的前端文件）
+# Copy backend binary (includes embedded frontend)
 COPY --from=backend-builder /app/main .
-# 暴露端口
 EXPOSE 3002
 CMD ["./main"]

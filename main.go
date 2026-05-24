@@ -88,7 +88,7 @@ func handleUI() http.HandlerFunc {
 			return
 		}
 
-		// 替换为请求的url对应的domain，使其在反向代理或不同域名下也能正常工作。
+		// Replace with the request's domain so it works behind reverse proxies.
 		backendHost := os.Getenv("EXCALIDRAW_BACKEND_HOST")
 		if backendHost == "" {
 			backendHost = r.Host
