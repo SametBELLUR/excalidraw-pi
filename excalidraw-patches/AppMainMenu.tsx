@@ -79,6 +79,7 @@ export const AppMainMenu: React.FC<{
   };
 
   return (
+    <>
     <MainMenu>
       <MainMenu.DefaultItems.LoadScene />
       <MainMenu.DefaultItems.SaveToActiveFile />
@@ -191,7 +192,6 @@ export const AppMainMenu: React.FC<{
       <MainMenu.Item onSelect={() => setShowAbout(true)}>
         About
       </MainMenu.Item>
-      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
       <MainMenu.Separator />
       <MainMenu.DefaultItems.ToggleTheme
         allowSystemTheme
@@ -203,5 +203,7 @@ export const AppMainMenu: React.FC<{
       </MainMenu.ItemCustom>
       <MainMenu.DefaultItems.ChangeCanvasBackground />
     </MainMenu>
+    {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
+    </>
   );
 });
