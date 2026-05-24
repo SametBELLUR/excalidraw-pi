@@ -4,12 +4,29 @@ A fork of [BetterAndBetterII/excalidraw-full](https://github.com/BetterAndBetter
 
 ## What's Different from Upstream
 
-- **Frontend auth gate**: only OIDC-authenticated users can access the app
-- **Local file storage backend** for collab images (replaces broken Firebase Storage calls)
-- **Firestore emulation persisted to disk** (collab canvas state survives container restarts)
-- **Frontend patches in `excalidraw-patches/`** overlaid during Docker build (no need to fork the submodule)
+### Auth & Access
+- **Frontend auth gate**: only OIDC-authenticated users can access the app — validates JWT against backend on every page load, bounces to `/auth/login` if missing/expired
+
+### Collab & Storage
+- **Local file storage backend** (`/api/v2/files/`): replaces broken Firebase Storage calls so collab images actually sync between users
+- **Collab image fix**: users who join a room after images were added now see them (removed overly strict `status === "saved"` filter)
+- **Firestore emulation persisted to disk**: collab canvas state survives container restarts (JSON-backed under `./data/firestore/`)
+- **Default storage switched to backend SQLite**: canvases are saved server-side by default instead of browser IndexedDB — survives cache clears and device switches
+
+### PWA & Updates
+- **PWA auto-update**: `skipWaiting` + `clientsClaim` enabled so new Service Workers activate immediately, no more stuck "waiting" state
+- **Polite reload banner**: after a deploy, open tabs show "Yeni versiyon mevcut" with a "Yenile" button — no DevTools needed to get the new version
+
+### UI & i18n
+- **All Chinese text replaced with English**: time labels, error messages, AI prompts, Dockerfile comments
+- **About dialog**: shows instance info (auth, storage, host) in the main menu
+- **GitHub link** points to this fork instead of upstream excalidraw
+
+### Infra & Build
 - **Dockerfile tuned** for Pi 4GB RAM Vite builds (`NODE_OPTIONS=--max-old-space-size=3072`)
 - **Local docker-compose build** instead of pulling from GHCR
+- **Frontend patches in `excalidraw-patches/`** overlaid during Docker build (no need to fork the submodule)
+- **Socket.io ping timeout reduced** (10s interval + 5s timeout) to fix ghost/duplicate users in collab sessions
 - cloudflare-worker submodule removed (not used for Pi deployment)
 
 ## Architecture
