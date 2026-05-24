@@ -2,9 +2,12 @@
 FROM --platform=$BUILDPLATFORM node:18 AS frontend-builder
 WORKDIR /app
 ENV NODE_OPTIONS=--max-old-space-size=3072
-# 复制 excalidraw 子模块
+# Copy excalidraw submodule (must be initialized: git submodule update --init excalidraw)
 COPY excalidraw/ ./excalidraw/
-# 构建前端
+# Overlay Pi-specific frontend patches (auth gate, file storage fix)
+COPY excalidraw-patches/index.html excalidraw/excalidraw-app/index.html
+COPY excalidraw-patches/firebase.ts excalidraw/excalidraw-app/data/firebase.ts
+# Build frontend
 RUN cd excalidraw && npm install -g pnpm && pnpm install && cd excalidraw-app && DISABLE_VITE_CHECKER=true pnpm build:app:docker
 
 # 后端构建阶段

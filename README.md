@@ -7,7 +7,7 @@ A fork of [BetterAndBetterII/excalidraw-full](https://github.com/BetterAndBetter
 - **Frontend auth gate**: only OIDC-authenticated users can access the app
 - **Local file storage backend** for collab images (replaces broken Firebase Storage calls)
 - **Firestore emulation persisted to disk** (collab canvas state survives container restarts)
-- **Frontend submodule inlined** for single-repo simplicity
+- **Frontend patches in `excalidraw-patches/`** overlaid during Docker build (no need to fork the submodule)
 - **Dockerfile tuned** for Pi 4GB RAM Vite builds (`NODE_OPTIONS=--max-old-space-size=3072`)
 - **Local docker-compose build** instead of pulling from GHCR
 - cloudflare-worker submodule removed (not used for Pi deployment)
@@ -47,9 +47,9 @@ Browser
 
 ## Setup
 
-1. Clone this repo:
+1. Clone this repo (with submodule):
    ```bash
-   git clone https://github.com/sametbellur/excalidraw-pi.git && cd excalidraw-pi
+   git clone --recursive https://github.com/sametbellur/excalidraw-pi.git && cd excalidraw-pi
    ```
 
 2. Copy `.env.example` to `.env` and fill in values:
