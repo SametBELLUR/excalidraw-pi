@@ -4,6 +4,7 @@ import (
 	"embed"
 	_ "embed"
 	"excalidraw-complete/handlers/api/documents"
+	"excalidraw-complete/handlers/api/files"
 	"excalidraw-complete/handlers/api/firebase"
 	"excalidraw-complete/handlers/api/kv"
 	"excalidraw-complete/handlers/api/openai"
@@ -157,6 +158,10 @@ func setupRouter(store stores.Store) *chi.Mux {
 			r.Route("/chat", func(r chi.Router) {
 				r.Post("/completions", openai.HandleChatCompletion())
 			})
+			r.Route("/files", func(r chi.Router) {
+				r.Post("/{fileId}", files.HandleUpload())
+				r.Get("/{fileId}", files.HandleDownload())
+			})
 		})
 
 		// Old routes for anonymous document sharing
@@ -308,6 +313,8 @@ func main() {
 
 	auth.InitAuth()
 	openai.Init()
+	files.Init()
+	firebase.Init()
 	store := stores.GetStore()
 
 	r := setupRouter(store)
