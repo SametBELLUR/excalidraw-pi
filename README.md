@@ -15,7 +15,7 @@ A fork of [BetterAndBetterII/excalidraw-full](https://github.com/BetterAndBetter
 
 ### PWA & Updates
 - **PWA auto-update**: `skipWaiting` + `clientsClaim` enabled so new Service Workers activate immediately, no more stuck "waiting" state
-- **Polite reload banner**: after a deploy, open tabs show "Yeni versiyon mevcut" with a "Yenile" button — no DevTools needed to get the new version
+- **Auto-update banner**: backend exposes `GET /api/v2/version` (unique ID per restart); frontend polls every 30s and shows a "Yeni versiyon mevcut" banner when the ID changes — no page refresh needed, no DevTools required
 
 ### UI & i18n
 - **All Chinese text replaced with English**: time labels, error messages, AI prompts, Dockerfile comments
@@ -147,6 +147,7 @@ flowchart LR
 | `/v1/.../documents:commit` | None | Firestore emulation - collab canvas state write |
 | `/v1/.../documents:batchGet` | None | Firestore emulation - collab canvas state read |
 | `/api/v2/chat/completions` | JWT | OpenAI proxy (requires OPENAI_API_KEY) |
+| `/api/v2/version` | None | Returns `{"id":"..."}` — unique per restart, used by update banner |
 | `/socket.io/` | None | Real-time collaboration WebSocket |
 
 ## Testing Auth Gate
