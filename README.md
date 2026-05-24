@@ -14,27 +14,52 @@ A fork of [BetterAndBetterII/excalidraw-full](https://github.com/BetterAndBetter
 
 ## Architecture
 
-```
-Browser
-  |
-  +-- HTTPS --> Cloudflare Tunnel --> Caddy (reverse proxy)
-  |                                       |
-  |                                       +-->  excalidraw-full :3002
-  |                                       |       +-- Go backend (chi router)
-  |                                       |       |     +-- /auth/*           (OIDC login/callback)
-  |                                       |       |     +-- /api/v2/kv/*      (JWT-protected canvas CRUD -> SQLite)
-  |                                       |       |     +-- /api/v2/files/*   (JWT-protected file upload/download -> disk)
-  |                                       |       |     +-- /api/v2/post/     (anonymous doc share)
-  |                                       |       |     +-- /v1/.../documents (Firestore emulation -> disk JSON)
-  |                                       |       |     +-- /socket.io/      (collab WebSocket)
-  |                                       |       +-- Embedded SPA (Vite-built Excalidraw)
-  |                                       |
-  |                                       +-->  Pocket-ID (OIDC provider at auth.bellur.dev)
-  |
-  +-- Persistent volumes:
-       ./data/files/       <-- collab image blobs
-       ./data/firestore/   <-- collab canvas state (JSON)
-       ./excalidraw.db     <-- per-user canvas storage (SQLite)
+```mermaid
+flowchart LR
+    browser["Browser"]
+    tunnel["Cloudflare Tunnel"]
+    caddy["Caddy reverse proxy"]
+    spa["Embedded SPA\n(Vite + React)"]
+    authgate["Auth gate\n(JWT check)"]
+    pwa["PWA + Service Worker\n(auto-update)"]
+
+    subgraph pi ["Raspberry Pi 5"]
+        subgraph container ["Docker container :3002"]
+            router["Go backend\n(chi router)"]
+            auth["/auth/*\nOIDC login/callback"]
+            kv["/api/v2/kv/*\nCanvas CRUD"]
+            files["/api/v2/files/*\nImage upload/download"]
+            firestore["/v1/.../documents\nFirestore emulation"]
+            share["/api/v2/post/\nAnonymous share"]
+            chat["/api/v2/chat/*\nOpenAI proxy"]
+            ws["/socket.io/\nCollab WebSocket"]
+            spa
+        end
+        sqlite[("SQLite\nexcalidraw.db")]
+        disk_files[("Disk\n./data/files/")]
+        disk_fs[("Disk\n./data/firestore/")]
+    end
+
+    pocketid["Pocket-ID\nOIDC provider\nauth.bellur.dev"]
+
+    browser --> tunnel
+    tunnel --> caddy
+    caddy --> router
+    router --> spa
+    spa --> authgate
+    authgate --> pwa
+    router --> auth
+    router --> kv
+    router --> files
+    router --> firestore
+    router --> share
+    router --> chat
+    router --> ws
+    auth <--> pocketid
+    kv --> sqlite
+    files --> disk_files
+    firestore --> disk_fs
+    share --> sqlite
 ```
 
 ## Prerequisites
