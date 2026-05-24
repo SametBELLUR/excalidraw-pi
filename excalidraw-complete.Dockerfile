@@ -11,6 +11,7 @@ COPY excalidraw-patches/time.ts excalidraw/excalidraw-app/utils/time.ts
 COPY excalidraw-patches/AI.tsx excalidraw/excalidraw-app/components/AI.tsx
 COPY excalidraw-patches/MyCreationsTab.tsx excalidraw/excalidraw-app/components/MyCreationsTab.tsx
 COPY excalidraw-patches/useCanvasManagement.ts excalidraw/excalidraw-app/hooks/useCanvasManagement.ts
+COPY excalidraw-patches/Collab.tsx excalidraw/excalidraw-app/collab/Collab.tsx
 # Build frontend
 RUN cd excalidraw && npm install -g pnpm && pnpm install && cd excalidraw-app && DISABLE_VITE_CHECKER=true pnpm build:app:docker
 
