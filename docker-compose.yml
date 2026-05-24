@@ -2,7 +2,11 @@ version: '3.8'
 
 services:
   excalidraw:
-    image: ghcr.io/betterandbetterii/excalidraw-full:latest
+    build:
+      context: .
+      dockerfile: excalidraw-complete.Dockerfile
+    image: excalidraw-full:gated
+    pull_policy: never
     ports:
       - "3002:3002"
     volumes:
