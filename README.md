@@ -1,182 +1,162 @@
-# Excalidraw Full: Your Self-Hosted, Cloud-Ready Collaboration Platform
+# Excalidraw — Pi Self-Hosted
 
-[中文说明](./README_zh.md)
+A fork of [BetterAndBetterII/excalidraw-full](https://github.com/BetterAndBetterII/excalidraw-full) configured for Raspberry Pi self-hosting with OIDC auth, JWT-protected canvases, and collab image support.
 
-Excalidraw Full has evolved. It's no longer just a simple wrapper for Excalidraw, but a powerful, self-hosted collaboration platform with a "Bring Your Own Cloud" (BYOC) philosophy. It provides user authentication, multi-canvas management, and the unique ability to connect directly to your own cloud storage from the frontend.
+## What's Different from Upstream
 
-The core idea is to let the backend handle user identity while giving you, the user, full control over where your data is stored.
+- **Frontend auth gate**: only OIDC-authenticated users can access the app
+- **Local file storage backend** for collab images (replaces broken Firebase Storage calls)
+- **Firestore emulation persisted to disk** (collab canvas state survives container restarts)
+- **Frontend submodule inlined** for single-repo simplicity
+- **Dockerfile tuned** for Pi 4GB RAM Vite builds (`NODE_OPTIONS=--max-old-space-size=3072`)
+- **Local docker-compose build** instead of pulling from GHCR
+- cloudflare-worker submodule removed (not used for Pi deployment)
 
-## Core Differences from Official Excalidraw
+## Architecture
 
-- **Fully Self-Hosted Collaboration & Sharing**: Unlike the official version, all real-time collaboration and sharing features are handled by your own self-hosted backend, ensuring complete data privacy and control.
-- **Advanced Multi-Canvas Management**: Seamlessly create, save, and manage multiple canvases. Store your work on the server's backend (e.g., SQLite, S3) or connect the frontend directly to your personal cloud storage (e.g., Cloudflare KV) for true data sovereignty.
-- **Zero-Config AI Features**: Instantly access integrated OpenAI features like GPT-4 Vision after logging in—no complex client-side setup required. API keys are securely managed by the backend.
+```
+Browser
+  |
+  +-- HTTPS --> Cloudflare Tunnel --> Caddy (reverse proxy)
+  |                                       |
+  |                                       +-->  excalidraw-full :3002
+  |                                       |       +-- Go backend (chi router)
+  |                                       |       |     +-- /auth/*           (OIDC login/callback)
+  |                                       |       |     +-- /api/v2/kv/*      (JWT-protected canvas CRUD -> SQLite)
+  |                                       |       |     +-- /api/v2/files/*   (JWT-protected file upload/download -> disk)
+  |                                       |       |     +-- /api/v2/post/     (anonymous doc share)
+  |                                       |       |     +-- /v1/.../documents (Firestore emulation -> disk JSON)
+  |                                       |       |     +-- /socket.io/      (collab WebSocket)
+  |                                       |       +-- Embedded SPA (Vite-built Excalidraw)
+  |                                       |
+  |                                       +-->  Pocket-ID (OIDC provider at auth.bellur.dev)
+  |
+  +-- Persistent volumes:
+       ./data/files/       <-- collab image blobs
+       ./data/firestore/   <-- collab canvas state (JSON)
+       ./excalidraw.db     <-- per-user canvas storage (SQLite)
+```
 
-![Multi-Canvas Management](./img/PixPin_2025-07-06_16-07-27.png)
+## Prerequisites
 
-![Multi-Choice Storage](./img/PixPin_2025-07-06_16-08-29.png)
+- Raspberry Pi 5 (4GB+ RAM) or any ARM64/AMD64 Linux host
+- Docker + docker-compose
+- A Pocket-ID instance (or any OIDC provider) reachable at a public URL
+- A reverse proxy that terminates TLS in front of the container (Caddy, Traefik, etc.)
+- Persistent volume mounted at the path in `LOCAL_STORAGE_PATH`
 
-![Oauth2 Login](./img/PixPin_2025-07-06_16-09-24.png)
+## Setup
 
-![AI Features](./img/PixPin_2025-07-06_16-09-55.png)
+1. Clone this repo:
+   ```bash
+   git clone https://github.com/sametbellur/excalidraw-pi.git && cd excalidraw-pi
+   ```
 
-## Key Features
+2. Copy `.env.example` to `.env` and fill in values:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
 
-- **GitHub Authentication**: Secure sign-in using GitHub OAuth.
-- **Multi-Canvas Management**: Users can create, save, and manage multiple drawing canvases.
-- **Flexible Data Storage (BYOC)**:
-    - **Default Backend Storage**: Out-of-the-box support for saving canvases on the server's storage (SQLite, Filesystem, S3).
-    - **Direct Cloud Connection**: The frontend can connect directly to your own cloud services like **Cloudflare KV** or **Amazon S3** for ultimate data sovereignty. Your credentials never touch our server.
-- **Real-time Collaboration**: The classic Excalidraw real-time collaboration is fully supported.
-- **Secure OpenAI Proxy**: An optional backend proxy for using OpenAI's GPT-4 Vision features, keeping your API key safe.
-- **All-in-One Binary**: The entire application, including the patched frontend and backend server, is compiled into a single Go binary for easy deployment.
+3. Create the SQLite database file:
+   ```bash
+   touch excalidraw.db
+   ```
 
-## Frontend Canvas Storage Strategies
+4. Configure your OIDC provider with these settings:
+   - **Callback URL**: `https://your-domain.example.com/auth/callback`
+   - **Logout URL**: `https://your-domain.example.com`
+   - **PKCE**: disabled (frontend doesn't send code_challenge)
 
-- **IndexedDB**: A fast, secure, and scalable key-value store. No need to configure anything. Not login required.
-- **Backend Storage**: The backend can save the canvas to the server's storage (SQLite, Filesystem, S3). Synchronized in different devices.
-- **Cloudflare KV**: A fast, secure, and scalable key-value store. This requires deploying a companion Worker to your Cloudflare account. See the [**Cloudflare Worker Deployment Guide**](./cloudflare-worker/README.md) for detailed instructions.
-- **Amazon S3**: A reliable, scalable, and inexpensive object storage service. 
+5. Build and start:
+   ```bash
+   docker compose build   # ~5-25 min on Pi 5 depending on RAM contention
+   docker compose up -d
+   ```
 
-## Installation & Running
+## Environment Variables
 
-One Click Docker run [Excalidraw-Full](https://github.com/BetterAndBetterII/excalidraw-full).
+| Variable | Required | Description |
+|---|---|---|
+| `OIDC_ISSUER_URL` | Yes | OIDC provider URL (e.g. `https://auth.bellur.dev`) |
+| `OIDC_CLIENT_ID` | Yes | OIDC client ID |
+| `OIDC_CLIENT_SECRET` | Yes | OIDC client secret |
+| `OIDC_REDIRECT_URL` | Yes | Must match your OIDC provider callback config |
+| `JWT_SECRET` | Yes | Generate with `openssl rand -base64 32` |
+| `STORAGE_TYPE` | Yes | `sqlite` recommended |
+| `DATA_SOURCE_NAME` | Yes | SQLite DB path, e.g. `excalidraw.db` |
+| `LOCAL_STORAGE_PATH` | No | Directory for file + firestore storage (default: `./data`) |
+| `EXCALIDRAW_BACKEND_HOST` | No | Override backend host detection (leave empty for auto) |
+| `OPENAI_API_KEY` | No | Enables AI chat features |
+| `FILE_UPLOAD_MAX_BYTES` | No | Max upload size in bytes (default: 10485760 = 10MB) |
+
+## Endpoints
+
+| Path | Auth | Description |
+|---|---|---|
+| `/` | Auth gate | SPA entry point (body hidden until JWT validated) |
+| `/auth/login` | None | Initiates OIDC flow |
+| `/auth/callback` | None | OIDC callback, sets JWT in URL query |
+| `/api/v2/kv/` | JWT | Canvas list (also used by auth gate for validation) |
+| `/api/v2/kv/{key}` | JWT | Canvas CRUD (GET/PUT/DELETE) |
+| `/api/v2/files/{fileId}` | JWT | File upload (POST) / download (GET) for collab images |
+| `/api/v2/post/` | None | Anonymous document share (create) |
+| `/api/v2/{id}` | None | Anonymous document share (read) |
+| `/v1/.../documents:commit` | None | Firestore emulation - collab canvas state write |
+| `/v1/.../documents:batchGet` | None | Firestore emulation - collab canvas state read |
+| `/api/v2/chat/completions` | JWT | OpenAI proxy (requires OPENAI_API_KEY) |
+| `/socket.io/` | None | Real-time collaboration WebSocket |
+
+## Testing Auth Gate
+
+In your browser DevTools console after loading the app:
+
+```js
+// Simulate token tampering - should bounce to /auth/login
+localStorage.setItem('token', 'fake'); location.reload();
+```
+
+## Testing Collab Image Storage
+
+1. **Upload via curl** (replace `$TOKEN` with a valid JWT):
+   ```bash
+   echo "test data" | curl -X POST http://localhost:3002/api/v2/files/test123 \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/octet-stream" \
+     --data-binary @- -w "\n%{http_code}\n"
+   # Expected: {"fileId":"test123","size":10} with 200
+
+   curl http://localhost:3002/api/v2/files/test123 \
+     -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}\n"
+   # Expected: 200
+   ```
+
+2. **Upload without auth** (should fail):
+   ```bash
+   echo "test" | curl -X POST http://localhost:3002/api/v2/files/noauth \
+     -H "Content-Type: application/octet-stream" \
+     --data-binary @- -w "\n%{http_code}\n"
+   # Expected: 401
+   ```
+
+3. **Path traversal** (should be rejected):
+   ```bash
+   echo "hack" | curl -X POST "http://localhost:3002/api/v2/files/..%2F..%2Fetc%2Fpasswd" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/octet-stream" \
+     --data-binary @- -w "\n%{http_code}\n"
+   # Expected: 400 (invalid file ID)
+   ```
+
+4. **Browser collab test**: Open two browser tabs, start a collab session, paste an image in tab A. Tab B should display the image (not a placeholder rectangle).
+
+## Rebuilding After Changes
 
 ```bash
-# Example for Linux
-git clone https://github.com/BetterAndBetterII/excalidraw-full.git
-cd excalidraw-full
-mv .env.example .env
-touch ./excalidraw.db  # IMPORTANT: Initialize the SQLite DB, OTHERWISE IT WILL NOT START
+docker compose build --no-cache
 docker compose up -d
 ```
 
-The server will start, and you can access the application at `http://localhost:3002`.
+## License / Attribution
 
-
-<!-- Summary Folded -->
-<details>
-<summary>Use Simple Password Authentication(Dex OIDC)</summary>
-
-```bash
-# Example for Linux
-git clone https://github.com/BetterAndBetterII/excalidraw-full.git
-cd excalidraw-full
-mv .env.example.dex .env
-touch ./excalidraw.db  # IMPORTANT: Initialize the SQLite DB, OTHERWISE IT WILL NOT START
-docker compose -f docker-compose.dex.yml up -d
-```
-
-Change your password in `.env` file.
-
-```bash
-# apt install apache2-utils
-# Generate the password hash
-echo YOUR_NEW_PASSWORD | htpasswd -BinC 10 admin | cut -d: -f2 > .htpasswd
-# Update your .env file
-sed -i "s|ADMIN_PASSWORD_HASH=.*|ADMIN_PASSWORD_HASH='$(cat .htpasswd)'|" .env
-```
-
-</details>
-
-
-## Configuration
-
-Configuration is managed via environment variables. For a full template, see the `.env.example` section below.
-
-### 1. Backend Configuration (Required)
-
-You must configure GitHub OAuth and a JWT secret for the application to function.
-
-- `GITHUB_CLIENT_ID`: Your GitHub OAuth App's Client ID.
-- `GITHUB_CLIENT_SECRET`: Your GitHub OAuth App's Client Secret.
-- `GITHUB_REDIRECT_URL`: The callback URL. For local testing, this is `http://localhost:3002/auth/callback`.
-- `JWT_SECRET`: A strong, random string for signing session tokens. Generate one with `openssl rand -base64 32`.
-- `OPENAI_API_KEY`: Your secret key from OpenAI.
-- `OPENAI_BASE_URL`: (Optional) For using compatible APIs like Azure OpenAI.
-
-### 2. Default Storage (Optional, but Recommended)
-
-This configures the server's built-in storage, used by default.
-
-- `STORAGE_TYPE`: `memory` (default), `sqlite`, `filesystem`, or `s3`.    
-- `DATA_SOURCE_NAME`: Path for the SQLite DB (e.g., `excalidraw.db`).
-- `LOCAL_STORAGE_PATH`: Directory for filesystem storage.
-- `S3_BUCKET_NAME`, `AWS_REGION`, etc.: For S3 storage.
-
-### 3. OpenAI Proxy (Optional)
-
-To enable AI features, set your OpenAI API key.
-
-- `OPENAI_API_KEY`: Your secret key from OpenAI.
-- `OPENAI_BASE_URL`: (Optional) For using compatible APIs like Azure OpenAI.
-
-### 4. Frontend Configuration
-
-Frontend storage adapters (like Cloudflare KV, S3) are configured directly in the application's UI settings after you log in. This is by design: your private cloud credentials are only ever stored in your browser's session and are never sent to the backend server.
-
-### Example `.env.example`
-
-Create a `.env` file in the project root and add the following, filling in your own values.
-
-```env
-# Backend Server Configuration
-# Get from https://github.com/settings/developers
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-GITHUB_REDIRECT_URL=http://localhost:3002/auth/callback
-
-# Generate with: openssl rand -base64 32
-JWT_SECRET=your_super_secret_jwt_string
-
-# Default Storage (SQLite)
-STORAGE_TYPE=sqlite
-DATA_SOURCE_NAME=excalidraw.db
-
-# Optional OpenAI Proxy
-OPENAI_API_KEY=sk-your_openai_api_key
-```
-
-## Building from Source
-
-The process is similar to before, but now requires the Go backend to be built.
-
-### Using Docker (Recommended)
-
-```bash
-# Clone the repository with submodules
-git clone https://github.com/PatWie/excalidraw-complete.git --recursive
-cd excalidraw-complete
-
-# Build the Docker image
-# This handles the frontend build, patching, and Go backend compilation.
-docker build -t excalidraw-complete -f excalidraw-complete.Dockerfile .
-
-# Run the container, providing the environment variables
-docker run -p 3002:3002 \
-  -e GITHUB_CLIENT_ID="your_id" \
-  -e GITHUB_CLIENT_SECRET="your_secret" \
-  -e GITHUB_REDIRECT_URL="http://localhost:3002/auth/callback" \
-  -e JWT_SECRET="your_jwt_secret" \
-  -e STORAGE_TYPE="sqlite" \
-  -e DATA_SOURCE_NAME="excalidraw.db" \
-  -e OPENAI_API_KEY="your_openai_api_key" \
-  excalidraw-complete
-```
-
-### Manual Build
-
-1.  **Build Frontend**: Follow the steps in the original README to patch and build the Excalidraw frontend inside the `excalidraw/` submodule.
-2.  **Copy Frontend**: Ensure the built frontend from `excalidraw/excalidraw-app/build` is copied to the `frontend/` directory in the root.
-3.  **Build Go Backend**:
-    ```bash
-    go build -o excalidraw-complete main.go
-    ```
-4.  **Run**:
-    ```bash
-    # Set environment variables first
-    ./excalidraw-complete
-    ```
----
-
-Excalidraw is a fantastic tool. This project aims to make a powerful, data-secure version of it accessible to everyone. Contributions are welcome!
+Forked from [BetterAndBetterII/excalidraw-full](https://github.com/BetterAndBetterII/excalidraw-full) and [BetterAndBetterII/excalidraw](https://github.com/BetterAndBetterII/excalidraw) (multi-canvas branch). See original repos for upstream license.
