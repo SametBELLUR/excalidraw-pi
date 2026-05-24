@@ -238,62 +238,63 @@
         }
       })();
 
-      // ─── Auto-update reload banner v2 ───
+      // ─── Auto-update reload banner (version polling) ───
       (function () {
-        if (!('serviceWorker' in navigator)) return;
         if (window.location.pathname.startsWith('/auth/')) return;
 
-        var hadInitialController = !!navigator.serviceWorker.controller;
+        var knownVersion = null;
 
         function showUpdateBanner() {
           if (document.getElementById('app-update-banner')) return;
-
-          function inject() {
-            if (!document.body) {
-              document.addEventListener('DOMContentLoaded', inject, { once: true });
-              return;
-            }
-            var banner = document.createElement('div');
-            banner.id = 'app-update-banner';
-            banner.setAttribute('role', 'status');
-            banner.style.cssText =
-              'position:fixed;top:0;left:0;right:0;' +
-              'padding:12px 20px;' +
-              'background:#4a90e2;color:#fff;' +
-              'z-index:999999;' +
-              'text-align:center;' +
-              'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;' +
-              'font-size:14px;' +
-              'box-shadow:0 2px 8px rgba(0,0,0,0.15);' +
-              'display:flex;align-items:center;justify-content:center;gap:12px;';
-            banner.innerHTML =
-              '<span>Yeni versiyon mevcut.</span>' +
-              '<button id="app-update-reload" type="button" ' +
-              'style="padding:6px 16px;background:#fff;color:#4a90e2;' +
-              'border:none;border-radius:4px;cursor:pointer;' +
-              'font-weight:600;font-size:13px;font-family:inherit">Yenile</button>' +
-              '<button id="app-update-dismiss" type="button" aria-label="Kapat" ' +
-              'style="padding:4px 9px;background:transparent;color:#fff;' +
-              'border:1px solid rgba(255,255,255,0.5);border-radius:4px;' +
-              'cursor:pointer;font-size:14px;line-height:1;font-family:inherit">×</button>';
-            document.body.appendChild(banner);
-            document.getElementById('app-update-reload')
-              .addEventListener('click', function () { window.location.reload(); });
-            document.getElementById('app-update-dismiss')
-              .addEventListener('click', function () { banner.remove(); });
+          if (!document.body) {
+            document.addEventListener('DOMContentLoaded', showUpdateBanner, { once: true });
+            return;
           }
-          inject();
+          var banner = document.createElement('div');
+          banner.id = 'app-update-banner';
+          banner.setAttribute('role', 'status');
+          banner.style.cssText =
+            'position:fixed;top:0;left:0;right:0;' +
+            'padding:12px 20px;' +
+            'background:#4a90e2;color:#fff;' +
+            'z-index:999999;' +
+            'text-align:center;' +
+            'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;' +
+            'font-size:14px;' +
+            'box-shadow:0 2px 8px rgba(0,0,0,0.15);' +
+            'display:flex;align-items:center;justify-content:center;gap:12px;';
+          banner.innerHTML =
+            '<span>Yeni versiyon mevcut.</span>' +
+            '<button id="app-update-reload" type="button" ' +
+            'style="padding:6px 16px;background:#fff;color:#4a90e2;' +
+            'border:none;border-radius:4px;cursor:pointer;' +
+            'font-weight:600;font-size:13px;font-family:inherit">Yenile</button>' +
+            '<button id="app-update-dismiss" type="button" aria-label="Kapat" ' +
+            'style="padding:4px 9px;background:transparent;color:#fff;' +
+            'border:1px solid rgba(255,255,255,0.5);border-radius:4px;' +
+            'cursor:pointer;font-size:14px;line-height:1;font-family:inherit">×</button>';
+          document.body.appendChild(banner);
+          document.getElementById('app-update-reload')
+            .addEventListener('click', function () { window.location.reload(); });
+          document.getElementById('app-update-dismiss')
+            .addEventListener('click', function () { banner.remove(); });
         }
 
-        navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (hadInitialController) showUpdateBanner();
-        });
+        function checkVersion() {
+          fetch('/api/v2/version', { cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (knownVersion === null) {
+                knownVersion = data.id;
+              } else if (data.id !== knownVersion) {
+                showUpdateBanner();
+              }
+            })
+            .catch(function () { /* server down, ignore */ });
+        }
 
-        navigator.serviceWorker.ready.then(function (reg) {
-          if (reg.waiting && hadInitialController) {
-            showUpdateBanner();
-          }
-        }).catch(function () { /* ignore */ });
+        checkVersion();
+        setInterval(checkVersion, 30000);
       })();
     </script>
   </head>

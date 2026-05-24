@@ -47,6 +47,8 @@ type (
 //go:embed all:frontend
 var assets embed.FS
 
+var startupID = fmt.Sprintf("%d", time.Now().UnixNano())
+
 func handleUI() http.HandlerFunc {
 	sub, err := fs.Sub(assets, "frontend")
 	if err != nil {
@@ -175,6 +177,12 @@ func setupRouter(store stores.Store) *chi.Mux {
 	r.Route("/auth", func(r chi.Router) {
 		r.Get("/login", auth.HandleLogin)
 		r.Get("/callback", auth.HandleCallback)
+	})
+
+	r.Get("/api/v2/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		fmt.Fprintf(w, `{"id":%q}`, startupID)
 	})
 
 	return r
