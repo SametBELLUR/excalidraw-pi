@@ -14,6 +14,7 @@ COPY excalidraw-patches/useCanvasManagement.ts excalidraw/excalidraw-app/hooks/u
 COPY excalidraw-patches/Collab.tsx excalidraw/excalidraw-app/collab/Collab.tsx
 COPY excalidraw-patches/AppMainMenu.tsx excalidraw/excalidraw-app/components/AppMainMenu.tsx
 COPY excalidraw-patches/vite.config.mts excalidraw/excalidraw-app/vite.config.mts
+COPY excalidraw-patches/app-jotai.ts excalidraw/excalidraw-app/app-jotai.ts
 # Build frontend
 RUN cd excalidraw && npm install -g pnpm && pnpm install && cd excalidraw-app && DISABLE_VITE_CHECKER=true pnpm build:app:docker
 
