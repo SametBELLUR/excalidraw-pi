@@ -1,6 +1,7 @@
 # 前端构建阶段
 FROM --platform=$BUILDPLATFORM node:18 AS frontend-builder
 WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=3072
 # 复制 excalidraw 子模块
 COPY excalidraw/ ./excalidraw/
 # 构建前端
