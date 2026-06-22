@@ -9,6 +9,9 @@ services:
     pull_policy: never
     ports:
       - "3002:3002"
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
     volumes:
       - ./data:/root/data
       - ./excalidraw.db:/root/excalidraw.db:Z

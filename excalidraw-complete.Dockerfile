@@ -36,9 +36,12 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o
 
 # Final runtime image
 FROM --platform=$TARGETPLATFORM alpine:latest
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates curl
 WORKDIR /root/
 # Copy backend binary (includes embedded frontend)
 COPY --from=backend-builder /app/main .
 EXPOSE 3002
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["./main"]
